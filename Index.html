@@ -47,36 +47,57 @@
             const [passInput, setPassInput] = useState('');
             const [showPass, setShowPass] = useState(false);
             
-            const [staff, setStaff] = useState(() => JSON.parse(localStorage.getItem('perfex_staff')) || [
-                { id: 1, name: 'Arbaj Patel', dept: 'Electrician' },
-                { id: 2, name: 'Vishal Palekar', dept: 'Electrician' },
-                { id: 3, name: 'Rishabh Dhamne', dept: 'HVAC Operator' },
-                { id: 4, name: 'Anurag Singh', dept: 'BMS Operator' },
-                { id: 5, name: 'Danish Ansari', dept: 'BMS Operator' }
-            ]);
-            
-            // 1. Ratings now initialized as empty array (Instruction applied)
+            // STEP 2: LocalStorage se hata kar empty state kiya
+            const [staff, setStaff] = useState([]);
             const [ratings, setRatings] = useState([]);
             const [selectedDept, setSelectedDept] = useState('Electrician');
 
-            // 2. Load Ratings from Supabase on mount (Instruction applied)
+            // STEP 3: Load Data from Supabase
             useEffect(() => {
+                loadStaff();
                 loadRatings();
             }, []);
 
+            async function loadStaff() {
+                const { data, error } = await supabase
+                    .from("staff")
+                    .select("*")
+                    .order("id", { ascending: true });
+                if (!error && data) setStaff(data);
+                else console.error("Staff Error:", error);
+            }
+
             async function loadRatings() {
                 const { data, error } = await supabase.from("ratings").select("*");
+                if (!error && data) setRatings(data);
+                else console.error("Ratings Error:", error);
+            }
+
+            // STEP 4: Add Staff Online
+            async function addStaff(name, dept) {
+                const { data, error } = await supabase
+                    .from("staff")
+                    .insert([{ name, dept }])
+                    .select();
                 if (!error && data) {
-                    setRatings(data);
+                    setStaff(prev => [...prev, ...data]);
                 } else {
-                    console.error("Fetch Error:", error);
+                    alert("Error adding staff");
                 }
             }
 
-            // Keep staff local storage for now, but removed ratings local storage (Instruction applied)
-            useEffect(() => {
-                localStorage.setItem('perfex_staff', JSON.stringify(staff));
-            }, [staff]);
+            // STEP 5: Delete Staff Online
+            async function deleteStaff(id) {
+                const { error } = await supabase
+                    .from("staff")
+                    .delete()
+                    .eq("id", id);
+                if (!error) {
+                    setStaff(prev => prev.filter(s => s.id !== id));
+                } else {
+                    alert("Error deleting staff");
+                }
+            }
 
             const rankingData = useMemo(() => {
                 return staff.map(s => {
@@ -175,14 +196,15 @@
                     <main className="p-6 pb-40 max-w-md mx-auto space-y-8 animate-slide-up">
                         {activeTab === 'home' && (
                             <div className="space-y-6">
-                                {isAdmin && <AdminTools staff={staff} onAdd={(n, d) => setStaff([...staff, {id: Date.now(), name: n, dept: d}])} onDelete={(id) => setStaff(staff.filter(s => s.id !== id))} />}
+                                {isAdmin && <AdminTools staff={staff} onAdd={addStaff} onDelete={deleteStaff} />}
                                 
                                 <section>
                                     <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Department Status</h3>
                                     <div className="grid grid-cols-1 gap-3">
                                         {DEPARTMENTS.map(d => {
-                                            const total = staff.filter(s => s.dept === d).length;
-                                            const completed = staff.filter(s => s.dept === d && ratings.some(r => r.empId === s.id && r.manager === manager)).length;
+                                            const deptStaff = staff.filter(s => s.dept === d);
+                                            const total = deptStaff.length;
+                                            const completed = deptStaff.filter(s => ratings.some(r => r.empId === s.id && r.manager === manager)).length;
                                             const progress = (completed / total) * 100 || 0;
                                             return (
                                                 <div key={d} onClick={() => { setSelectedDept(d); setActiveTab('rate'); }} className="glass p-5 rounded-3xl active:scale-[0.98] transition cursor-pointer group">
@@ -207,15 +229,13 @@
                                 selectedDept={selectedDept} 
                                 manager={manager} 
                                 ratings={ratings} 
-                                // 3. Updated onDone with Supabase Insert (Instruction applied)
                                 onDone={async (r) => {
                                     const newRating = { ...r, date: new Date().toLocaleDateString() };
                                     const { error } = await supabase.from("ratings").insert([newRating]);
                                     if (!error) {
                                         setRatings(prev => [...prev, newRating]);
                                     } else {
-                                        alert("Error saving rating to Database");
-                                        console.error(error);
+                                        alert("Error saving rating");
                                     }
                                 }} 
                             />
