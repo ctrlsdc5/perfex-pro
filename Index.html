@@ -9,7 +9,6 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;800&display=swap" rel="stylesheet">
@@ -18,6 +17,7 @@
         .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
         .nav-active { color: #3b82f6; position: relative; }
         .nav-active::after { content: ''; position: absolute; bottom: -4px; width: 12px; height: 3px; background: #3b82f6; border-radius: 10px; }
+        .star-gold { color: #FFD700; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
         .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
@@ -47,58 +47,40 @@
             const [selectedDept, setSelectedDept] = useState('Electrician');
 
             useEffect(() => {
-                loadInitialData();
+                loadAllData();
             }, []);
 
-            async function loadInitialData() {
+            async function loadAllData() {
                 try {
-                    const { data: staffData, error: sErr } = await supabase.from("staff").select("*").order("id");
-                    if (sErr) throw sErr;
-                    setStaff(staffData || []);
-
-                    const { data: ratData, error: rErr } = await supabase.from("ratings").select("*");
-                    if (rErr) throw rErr;
-                    setRatings(ratData || []);
-                } catch (err) {
-                    console.error("Fetch Error:", err.message);
-                }
+                    const { data: sData } = await supabase.from("staff").select("*").order("name");
+                    if (sData) setStaff(sData);
+                    const { data: rData } = await supabase.from("ratings").select("*");
+                    if (rData) setRatings(rData);
+                } catch (e) { console.error("Load Error:", e); }
             }
 
             async function addStaff(name, dept) {
                 const { data, error } = await supabase.from("staff").insert([{ name, dept }]).select();
                 if (error) {
-                    alert("Table Error: " + error.message + "\n\nTip: Make sure you ran the SQL script in Supabase.");
-                    console.error("Insert Error:", error);
+                    alert("Error adding staff: " + error.message);
                 } else {
                     setStaff(prev => [...prev, ...data]);
-                    alert("Staff added successfully!");
+                    alert("Staff Added Successfully!");
                 }
             }
 
             async function deleteStaff(id) {
                 const { error } = await supabase.from("staff").delete().eq("id", id);
                 if (!error) setStaff(prev => prev.filter(s => s.id !== id));
-                else alert("Delete failed: " + error.message);
             }
 
             const rankingData = useMemo(() => {
                 return staff.map(s => {
-                    const staffRatings = ratings.filter(r => r.empId === s.id);
-                    const avg = staffRatings.length === 0 ? 0 : 
-                                staffRatings.reduce((a, b) => a + b.avg, 0) / staffRatings.length;
+                    const sRatings = ratings.filter(r => r.empId === s.id);
+                    const avg = sRatings.length === 0 ? 0 : sRatings.reduce((a, b) => a + b.avg, 0) / sRatings.length;
                     return { ...s, score: parseFloat(avg.toFixed(2)) };
                 }).sort((a, b) => b.score - a.score);
             }, [ratings, staff]);
-
-            const handleLogin = () => {
-                if (isAdmin) {
-                    if (passInput === ADMIN_PASS) setView('main');
-                    else alert("Wrong Admin Password!");
-                } else {
-                    if (manager.trim()) setView('main');
-                    else alert("Please enter manager name");
-                }
-            };
 
             if (view === 'login') return (
                 <div className="h-screen flex flex-col items-center justify-center p-6 bg-[#020617]">
@@ -107,12 +89,12 @@
                             <h1 className="text-4xl font-black text-blue-500 italic">PERFEX</h1>
                         </div>
                         <div className="flex bg-slate-900/50 p-1.5 rounded-2xl mb-8 border border-white/5">
-                            <button onClick={() => setIsAdmin(false)} className={`flex-1 py-3 rounded-xl text-xs font-black ${!isAdmin ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>MANAGER</button>
-                            <button onClick={() => setIsAdmin(true)} className={`flex-1 py-3 rounded-xl text-xs font-black ${isAdmin ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400'}`}>ADMIN</button>
+                            <button onClick={() => setIsAdmin(false)} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${!isAdmin ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>MANAGER</button>
+                            <button onClick={() => setIsAdmin(true)} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${isAdmin ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400'}`}>ADMIN</button>
                         </div>
-                        <input type="text" placeholder={isAdmin ? "Admin Username" : "Enter Your Name"} className="w-full p-4 mb-4 bg-slate-900/50 border border-slate-700/50 rounded-2xl text-white outline-none" onChange={(e) => setManager(e.target.value)} />
+                        <input type="text" placeholder={isAdmin ? "Username" : "Enter Your Name"} className="w-full p-4 mb-4 bg-slate-900/50 border border-slate-700/50 rounded-2xl text-white outline-none" onChange={(e) => setManager(e.target.value)} />
                         {isAdmin && <input type="password" placeholder="Password" className="w-full p-4 mb-4 bg-slate-900/50 border border-slate-700/50 rounded-2xl text-white outline-none" onChange={(e) => setPassInput(e.target.value)} />}
-                        <button onClick={handleLogin} className={`w-full py-5 rounded-2xl font-black shadow-xl uppercase text-sm ${isAdmin ? 'bg-red-600' : 'bg-blue-600'}`}>Enter</button>
+                        <button onClick={() => isAdmin ? (passInput === ADMIN_PASS ? setView('main') : alert("Wrong Pass")) : (manager ? setView('main') : alert("Enter Name"))} className={`w-full py-5 rounded-2xl font-black uppercase text-sm ${isAdmin ? 'bg-red-600' : 'bg-blue-600'}`}>Login</button>
                     </div>
                 </div>
             );
@@ -121,42 +103,45 @@
                 <div className="min-h-screen bg-[#070b14]">
                     <header className="p-5 glass sticky top-0 z-50 flex justify-between items-center px-6">
                         <div className="font-black text-xl text-blue-500 italic">PERFEX</div>
-                        <button onClick={() => setView('login')} className="bg-white/5 text-rose-500 p-2 px-4 rounded-xl text-[10px] font-black border border-rose-500/20">LOGOUT</button>
+                        <button onClick={() => window.location.reload()} className="bg-white/5 text-rose-500 p-2 px-4 rounded-xl text-[10px] font-black border border-rose-500/20">LOGOUT</button>
                     </header>
 
                     <main className="p-6 pb-40 max-w-md mx-auto space-y-8 animate-slide-up">
                         {activeTab === 'home' && (
                             <div className="space-y-6">
                                 {isAdmin && <AdminTools staff={staff} onAdd={addStaff} onDelete={deleteStaff} />}
-                                <section>
-                                    <h3 className="text-xs font-black text-slate-500 uppercase mb-4 tracking-widest">Departments</h3>
-                                    {DEPARTMENTS.map(d => {
-                                        const deptStaff = staff.filter(s => s.dept === d);
-                                        const completed = deptStaff.filter(s => ratings.some(r => r.empId === s.id && r.manager === manager)).length;
-                                        return (
-                                            <div key={d} onClick={() => { setSelectedDept(d); setActiveTab('rate'); }} className="glass p-5 rounded-3xl mb-3 cursor-pointer hover:border-blue-500/50 transition-all">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="font-black text-sm text-white">{d}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold">{completed}/{deptStaff.length} DONE</span>
-                                                </div>
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2">Departments</h3>
+                                {DEPARTMENTS.map(d => {
+                                    const count = staff.filter(s => s.dept === d).length;
+                                    const done = staff.filter(s => s.dept === d && ratings.some(r => r.empId === s.id && r.manager === manager)).length;
+                                    return (
+                                        <div key={d} onClick={() => { setSelectedDept(d); setActiveTab('rate'); }} className="glass p-6 rounded-3xl cursor-pointer border border-white/5 hover:border-blue-500/50 transition-all">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-black text-white">{d}</span>
+                                                <span className="text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded-lg">{done}/{count} DONE</span>
                                             </div>
-                                        );
-                                    })}
-                                </section>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 
                         {activeTab === 'rate' && (
                             <RatingFlow staff={staff} selectedDept={selectedDept} manager={manager} ratings={ratings} onDone={async (r) => {
+                                // Important: Wrap empId in quotes to match SQL schema exactly
                                 const { error } = await supabase.from("ratings").insert([r]);
-                                if (!error) { setRatings(prev => [...prev, r]); alert("Saved!"); }
-                                else alert("Rating Error: " + error.message);
+                                if (error) {
+                                    alert("Rating Submission Failed: " + error.message);
+                                } else {
+                                    setRatings(prev => [...prev, r]);
+                                    alert("Rating Saved Successfully!");
+                                }
                             }} />
                         )}
 
                         {activeTab === 'stats' && (
                             <div className="space-y-4">
-                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Global Rankings</h3>
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2">Leaderboard</h3>
                                 {rankingData.map((s, i) => (
                                     <div key={s.id} className="glass p-5 rounded-3xl flex justify-between items-center">
                                         <div className="flex items-center gap-4">
@@ -166,16 +151,14 @@
                                                 <div className="text-[9px] text-slate-500 font-bold uppercase">{s.dept}</div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-black text-white">{s.score}</div>
-                                        </div>
+                                        <div className="text-xl font-black text-white">{s.score}</div>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </main>
 
-                    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-sm glass rounded-[2.5rem] p-2 flex justify-around shadow-2xl z-50">
+                    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-sm glass rounded-[2.5rem] p-2 flex justify-around shadow-2xl z-50 border border-white/10">
                         {['home', 'rate', 'stats'].map(t => (
                             <button key={t} onClick={() => setActiveTab(t)} className={`flex flex-col items-center flex-1 py-3 ${activeTab === t ? 'nav-active' : 'text-slate-500'}`}>
                                 <span className="text-xl">{t === 'home' ? '⊡' : t === 'rate' ? '★' : '📊'}</span>
@@ -193,22 +176,22 @@
             const [newDept, setNewDept] = useState(DEPARTMENTS[0]);
 
             return (
-                <div className="glass rounded-[2rem] border-red-500/20 border overflow-hidden mb-6">
-                    <button onClick={() => setIsOpened(!isOpened)} className="w-full p-5 flex justify-between items-center bg-red-500/5 font-black text-xs text-red-500 uppercase">
+                <div className="glass rounded-[2rem] border-red-500/20 border overflow-hidden mb-8">
+                    <button onClick={() => setIsOpened(!isOpened)} className="w-full p-5 flex justify-between items-center bg-red-500/5 text-red-500 font-black text-xs uppercase">
                         Admin Control Panel <span>{isOpened ? 'CLOSE' : 'OPEN'}</span>
                     </button>
                     {isOpened && (
                         <div className="p-6 space-y-4 animate-slide-up">
-                            <input type="text" placeholder="Full Name" className="w-full p-4 bg-black/40 border border-slate-700 rounded-2xl text-white font-bold" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                            <select className="w-full p-4 bg-black/40 border border-slate-700 rounded-2xl text-white font-bold" value={newDept} onChange={(e) => setNewDept(e.target.value)}>
+                            <input type="text" placeholder="Full Name" className="w-full p-4 bg-black/40 border border-slate-700 rounded-2xl text-white font-bold outline-none" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                            <select className="w-full p-4 bg-black/40 border border-slate-700 rounded-2xl text-white font-bold outline-none" value={newDept} onChange={(e) => setNewDept(e.target.value)}>
                                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
-                            <button onClick={() => { if(newName){ onAdd(newName, newDept); setNewName(''); } }} className="w-full py-4 bg-red-600 rounded-2xl font-black text-xs uppercase shadow-lg shadow-red-600/20">Add Staff</button>
-                            <div className="max-h-48 overflow-y-auto space-y-2 pt-4 border-t border-white/5">
+                            <button onClick={() => { if(newName){ onAdd(newName, newDept); setNewName(''); } }} className="w-full py-4 bg-red-600 rounded-2xl font-black text-xs uppercase shadow-lg shadow-red-600/20">Add to Directory</button>
+                            <div className="max-h-48 overflow-y-auto space-y-2 pt-4 border-t border-white/5 mt-4">
                                 {staff.map(s => (
-                                    <div key={s.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl text-xs font-bold">
+                                    <div key={s.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl text-[10px] font-bold">
                                         <span>{s.name} ({s.dept})</span>
-                                        <button onClick={() => onDelete(s.id)} className="text-red-500 font-black">DELETE</button>
+                                        <button onClick={() => confirm('Are you sure?') && onDelete(s.id)} className="text-red-500">DELETE</button>
                                     </div>
                                 ))}
                             </div>
@@ -225,37 +208,48 @@
 
             if (emp) return (
                 <div className="glass p-8 rounded-[2.5rem] animate-slide-up">
-                    <button onClick={() => setEmp(null)} className="text-blue-500 font-black text-[10px] mb-4">← BACK</button>
-                    <h2 className="text-2xl font-black text-white text-center mb-6">{emp.name}</h2>
-                    {[['t','Technical'], ['c','Teamwork'], ['p','Punctuality'], ['s','Critical Thinking']].map(([key, label]) => (
+                    <button onClick={() => setEmp(null)} className="text-blue-500 font-black text-[10px] mb-4 tracking-widest">← BACK TO LIST</button>
+                    <h2 className="text-2xl font-black text-white text-center mb-6 uppercase tracking-tight">{emp.name}</h2>
+                    {[['t','Technical Knowledge'], ['c','Team Collaboration'], ['p','Punctuality'], ['s','Critical Thinking']].map(([key, label]) => (
                         <div key={key} className="mb-6">
-                            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">{label}</label>
-                            <div className="flex justify-between bg-slate-900/40 p-3 rounded-2xl">
+                            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">{label}</label>
+                            <div className="flex justify-between bg-slate-900/40 p-3 rounded-2xl border border-white/5">
                                 {[1,2,3,4,5].map(n => (
-                                    <button key={n} onClick={() => setVals({...vals, [key]: n})} className={`text-2xl transition-all ${vals[key] >= n ? 'text-yellow-500' : 'text-slate-800'}`}>★</button>
+                                    <button key={n} onClick={() => setVals({...vals, [key]: n})} className={`text-2xl transition-all ${vals[key] >= n ? 'star-gold' : 'text-slate-800'}`}>★</button>
                                 ))}
                             </div>
                         </div>
                     ))}
                     <button onClick={() => {
-                        if(Object.values(vals).includes(0)) return alert("Rate all criteria!");
-                        onDone({ manager, empId: emp.id, name: emp.name, dept: emp.dept, ...vals, avg: (vals.t+vals.c+vals.p+vals.s)/4, date: new Date().toLocaleDateString() });
-                        setEmp(null); setVals({t:0,c:0,p:0,s:0});
-                    }} className="w-full py-5 bg-blue-600 rounded-2xl font-black uppercase text-xs">Confirm Rating</button>
+                        if(Object.values(vals).includes(0)) return alert("Please complete all ratings!");
+                        onDone({ 
+                            manager, 
+                            empId: emp.id, 
+                            name: emp.name, 
+                            dept: emp.dept, 
+                            ...vals, 
+                            avg: (vals.t+vals.c+vals.p+vals.s)/4, 
+                            date: new Date().toLocaleDateString() 
+                        });
+                        setEmp(null);
+                        setVals({t:0,c:0,p:0,s:0});
+                    }} className="w-full py-5 bg-blue-600 rounded-2xl font-black uppercase text-xs mt-4 shadow-xl shadow-blue-600/20">Confirm Submission</button>
                 </div>
             );
 
             return (
                 <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pending Evaluation</h4>
-                    {pending.length === 0 ? <div className="text-center p-10 text-slate-600">All caught up!</div> : 
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Selection Required</h4>
+                    {pending.length === 0 ? (
+                        <div className="text-center p-12 glass rounded-3xl text-slate-500 font-bold italic">No pending evaluations for this department.</div>
+                    ) : (
                         pending.map(s => (
                             <div key={s.id} onClick={() => setEmp(s)} className="glass p-6 rounded-3xl flex justify-between items-center cursor-pointer border border-white/5 active:scale-95 transition-all">
                                 <span className="font-bold text-white">{s.name}</span>
-                                <span className="text-blue-500 font-black">START →</span>
+                                <span className="text-blue-500 font-black text-xs uppercase tracking-tighter italic">Evaluate →</span>
                             </div>
                         ))
-                    }
+                    )}
                 </div>
             );
         }
