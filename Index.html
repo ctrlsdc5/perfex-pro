@@ -151,7 +151,7 @@
                         <button onClick={handleLogout} className="bg-white/5 hover:bg-rose-500/20 text-rose-500 p-2 px-4 rounded-xl text-[10px] font-black transition-all border border-rose-500/20">LOGOUT</button>
                     </header>
 
-                    <main className="p-6 max-w-md mx-auto space-y-8 animate-slide-up">
+                    <main className="p-6 pb-40 max-w-md mx-auto space-y-8 animate-slide-up">
                         {activeTab === 'home' && (
                             <div className="space-y-6">
                                 {isAdmin && <AdminTools staff={staff} onAdd={(n, d) => setStaff([...staff, {id: Date.now(), name: n, dept: d}])} onDelete={(id) => setStaff(staff.filter(s => s.id !== id))} />}
