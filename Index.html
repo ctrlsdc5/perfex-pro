@@ -1,372 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PerfEx Pro | World-Class Performance Suite</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #070b14; color: #f8fafc; overflow-x: hidden; }
-        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
-        .star-gold { color: #FFD700; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
-        .star-gray { color: #1e293b; }
-        .nav-active { color: #3b82f6; position: relative; }
-        .nav-active::after { content: ''; position: absolute; bottom: -4px; width: 12px; height: 3px; background: #3b82f6; border-radius: 10px; }
-        .btn-bounce:active { transform: scale(0.95); }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PerfEx Pro</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const SUPABASE_URL = "https://thjeftenonekovxflzvd.supabase.co";
+const SUPABASE_KEY = "sb_publishable_BgdiBx65Zcd-5DTTFRbrjw_lhWluEmu";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+window.supabaseClient = supabase;
+</script>
+
 </head>
-<body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+<body class="bg-slate-900 text-white">
+<div id="root"></div>
 
-        const DEPARTMENTS = ['Electrician', 'HVAC Operator', 'BMS Operator'];
-        const ADMIN_PASS = "Inf0rmati0n@123";
+<script type="text/babel">
 
-        function App() {
-            const [view, setView] = useState('login'); 
-            const [manager, setManager] = useState('');
-            const [isAdmin, setIsAdmin] = useState(false);
-            const [activeTab, setActiveTab] = useState('home');
-            const [passInput, setPassInput] = useState('');
-            const [showPass, setShowPass] = useState(false);
-            
-            const [staff, setStaff] = useState(() => JSON.parse(localStorage.getItem('perfex_staff')) || [
-                { id: 1, name: 'Arbaj Patel', dept: 'Electrician' },
-                { id: 2, name: 'Vishal Palekar', dept: 'Electrician' },
-                { id: 3, name: 'Rishabh Dhamne', dept: 'HVAC Operator' },
-                { id: 4, name: 'Anurag Singh', dept: 'BMS Operator' },
-                { id: 5, name: 'Danish Ansari', dept: 'BMS Operator' }
-            ]);
-            
-            const [ratings, setRatings] = useState(() => JSON.parse(localStorage.getItem('perfex_data') || '[]'));
-            const [selectedDept, setSelectedDept] = useState('Electrician');
+const { useState, useEffect } = React;
 
-            useEffect(() => {
-                localStorage.setItem('perfex_data', JSON.stringify(ratings));
-                localStorage.setItem('perfex_staff', JSON.stringify(staff));
-            }, [ratings, staff]);
+function App() {
 
-            const rankingData = useMemo(() => {
-                return staff.map(s => {
-                    const staffRatings = ratings.filter(r => r.empId === s.id);
-                    const avg = staffRatings.length === 0 ? 0 : 
-                                staffRatings.reduce((a, b) => a + b.avg, 0) / staffRatings.length;
-                    return { ...s, score: parseFloat(avg.toFixed(2)), ratedBy: staffRatings.length };
-                }).sort((a, b) => b.score - a.score);
-            }, [ratings, staff]);
+  const [manager, setManager] = useState("");
+  const [ratings, setRatings] = useState([]);
 
-            const handleLogin = () => {
-                if (isAdmin) {
-                    if (passInput === ADMIN_PASS) setView('main');
-                    else alert("Wrong Admin Password!");
-                } else {
-                    if (manager.trim()) setView('main');
-                    else alert("Please enter manager name");
-                }
-            };
+  useEffect(() => {
+    loadRatings();
+  }, []);
 
-            const handleLogout = () => {
-                if(confirm("Are you sure you want to logout?")) {
-                    setView('login');
-                    setManager('');
-                    setPassInput('');
-                    setIsAdmin(false);
-                    setActiveTab('home');
-                }
-            };
+  async function loadRatings() {
+    const { data } = await window.supabaseClient
+      .from("ratings")
+      .select("*");
+    if (data) setRatings(data);
+  }
 
-            const exportExcel = () => {
-                const data = ratings.map(r => ({
-                    'Manager': r.manager,
-                    'Employee': r.name,
-                    'Category': r.dept,
-                    'Technical': r.t,
-                    'Teamwork': r.c,
-                    'Punctuality': r.p,
-                    'Critical Thinking': r.s,
-                    'Overall Avg': r.avg.toFixed(2),
-                    'Date': r.date
-                }));
-                const ws = XLSX.utils.json_to_sheet(data);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Master Report");
-                XLSX.writeFile(wb, `PerfEx_Report_${new Date().toLocaleDateString()}.xlsx`);
-            };
+  async function addRating() {
+    if (!manager) return alert("Enter Manager Name");
 
-            if (view === 'login') return (
-                <div className="h-screen flex flex-col items-center justify-center p-6 bg-[#020617]">
-                    <div className="w-full max-w-sm p-8 rounded-[2.5rem] glass text-center animate-slide-up shadow-2xl">
-                        <div className="mb-8">
-                            <h1 className="text-4xl font-black text-blue-500 italic">PERFEX</h1>
-                            <p className="text-[10px] tracking-[0.3em] text-slate-500 font-bold uppercase mt-1">Pro Edition</p>
-                        </div>
-                        
-                        <div className="flex bg-slate-900/50 p-1.5 rounded-2xl mb-8 border border-white/5">
-                            <button onClick={() => setIsAdmin(false)} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${!isAdmin ? 'bg-blue-600 shadow-lg text-white' : 'text-slate-400'}`}>MANAGER</button>
-                            <button onClick={() => setIsAdmin(true)} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${isAdmin ? 'bg-red-600 shadow-lg text-white' : 'text-slate-400'}`}>ADMIN</button>
-                        </div>
+    await window.supabaseClient.from("ratings").insert([{
+      manager: manager,
+      empId: 1,
+      name: "Demo Employee",
+      dept: "Electrician",
+      t: 4,
+      c: 4,
+      p: 4,
+      s: 4,
+      avg: 4,
+      date: new Date().toLocaleDateString()
+    }]);
 
-                        <div className="space-y-4">
-                            <div className="relative">
-                                <input type="text" placeholder={isAdmin ? "Admin Username" : "Enter Your Name"} 
-                                className="w-full p-4 pl-6 bg-slate-900/50 border border-slate-700/50 rounded-2xl font-bold outline-none focus:border-blue-500 transition-all text-white placeholder:text-slate-600" 
-                                onChange={(e) => setManager(e.target.value)} />
-                            </div>
-                            
-                            {isAdmin && (
-                                <div className="relative animate-slide-up">
-                                    <input type={showPass ? "text" : "password"} placeholder="Admin Password" 
-                                    className="w-full p-4 pl-6 bg-slate-900/50 border border-slate-700/50 rounded-2xl font-bold outline-none focus:border-red-500 transition-all text-white" 
-                                    onChange={(e) => setPassInput(e.target.value)} />
-                                    <button onClick={() => setShowPass(!showPass)} className="absolute right-4 top-4 text-slate-500">
-                                        {showPass ? "Hide" : "Show"}
-                                    </button>
-                                </div>
-                            )}
+    loadRatings();
+    alert("Saved to Cloud ✅");
+  }
 
-                            <button onClick={handleLogin} className={`w-full py-5 rounded-2xl font-black shadow-xl transition-all btn-bounce uppercase tracking-widest text-sm ${isAdmin ? 'bg-red-600' : 'bg-blue-600'}`}>
-                                {isAdmin ? 'Enter Control Room' : 'Start Assessment'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
+  return (
+    <div className="p-10 space-y-6 text-center">
+      <h1 className="text-3xl font-bold">PerfEx Cloud Version</h1>
 
-            return (
-                <div className="min-h-screen bg-[#070b14]">
-                    <header className="p-5 glass sticky top-0 z-50 flex justify-between items-center px-6">
-                        <div>
-                            <div className="font-black text-xl text-blue-500 italic">PERFEX</div>
-                            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">Connected as {manager}</div>
-                        </div>
-                        <button onClick={handleLogout} className="bg-white/5 hover:bg-rose-500/20 text-rose-500 p-2 px-4 rounded-xl text-[10px] font-black transition-all border border-rose-500/20">LOGOUT</button>
-                    </header>
+      <input
+        className="p-3 rounded text-black"
+        placeholder="Manager Name"
+        onChange={(e)=>setManager(e.target.value)}
+      />
 
-                    <main className="p-6 max-w-md mx-auto space-y-8 animate-slide-up">
-                        {activeTab === 'home' && (
-                            <div className="space-y-6">
-                                {isAdmin && <AdminTools staff={staff} onAdd={(n, d) => setStaff([...staff, {id: Date.now(), name: n, dept: d}])} onDelete={(id) => setStaff(staff.filter(s => s.id !== id))} />}
-                                
-                                <section>
-                                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Department Status</h3>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {DEPARTMENTS.map(d => {
-                                            const total = staff.filter(s => s.dept === d).length;
-                                            const completed = staff.filter(s => s.dept === d && ratings.some(r => r.empId === s.id && r.manager === manager)).length;
-                                            const progress = (completed / total) * 100 || 0;
-                                            return (
-                                                <div key={d} onClick={() => { setSelectedDept(d); setActiveTab('rate'); }} className="glass p-5 rounded-3xl active:scale-[0.98] transition cursor-pointer group">
-                                                    <div className="flex justify-between items-center mb-3">
-                                                        <span className="font-black text-sm tracking-wide text-white group-hover:text-blue-400 transition-colors">{d}</span>
-                                                        <span className="text-[10px] font-black text-slate-400 bg-white/5 px-2 py-1 rounded-lg">{completed}/{total} DONE</span>
-                                                    </div>
-                                                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-blue-500 transition-all duration-700" style={{ width: `${progress}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </section>
-                            </div>
-                        )}
+      <div>
+        <button
+          onClick={addRating}
+          className="bg-blue-600 px-6 py-3 rounded mt-4"
+        >
+          Test Save Rating
+        </button>
+      </div>
 
-                        {activeTab === 'rate' && (
-                            <RatingFlow 
-                                staff={staff}
-                                selectedDept={selectedDept} 
-                                manager={manager} 
-                                ratings={ratings} 
-                                onDone={(r) => { setRatings([...ratings, {...r, date: new Date().toLocaleDateString()}]); }} 
-                            />
-                        )}
+      <div className="mt-10">
+        <h2 className="text-xl mb-4">Saved Ratings</h2>
+        {ratings.map((r,i)=>(
+          <div key={i} className="bg-slate-800 p-3 rounded mb-2">
+            {r.manager} - {r.name} - {r.avg}⭐
+          </div>
+        ))}
+      </div>
 
-                        {activeTab === 'stats' && (
-                            <div className="space-y-6">
-                                <div className="flex justify-between items-end">
-                                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Global Rankings</h3>
-                                    <button onClick={exportExcel} className="text-[10px] font-black bg-green-500/10 text-green-500 px-4 py-2 rounded-xl border border-green-500/20 active:scale-95 transition-all">EXCEL REPORT</button>
-                                </div>
-                                {rankingData.map((s, i) => (
-                                    <div key={s.id} className="glass p-5 rounded-3xl flex justify-between items-center border border-white/5 relative overflow-hidden">
-                                        {i === 0 && <div className="absolute top-0 right-0 bg-yellow-500 text-[8px] font-black text-black px-3 py-1 rounded-bl-xl">TOP PERFORMER</div>}
-                                        <div className="flex items-center gap-4">
-                                            <span className={`text-2xl font-black ${i < 3 ? 'text-blue-500' : 'text-slate-700'}`}>#{i + 1}</span>
-                                            <div>
-                                                <div className="font-bold text-lg text-white leading-tight">{s.name}</div>
-                                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">{s.dept}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-2xl font-black text-white">{s.score || '---'}</div>
-                                            <div className="text-[8px] text-slate-500 font-bold uppercase">Avg Stars</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </main>
+    </div>
+  );
+}
 
-                    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-sm glass rounded-[2.5rem] p-2 flex justify-around shadow-2xl z-50 border-white/10">
-                        {[
-                            { id: 'home', label: 'Dashboard', icon: '⊡' },
-                            { id: 'rate', label: 'Rate', icon: '★' },
-                            { id: 'stats', label: 'Leaderboard', icon: '📊' }
-                        ].map(t => (
-                            <button key={t.id} onClick={() => setActiveTab(t.id)} 
-                            className={`flex flex-col items-center flex-1 py-3 transition-all ${activeTab === t.id ? 'nav-active' : 'text-slate-500'}`}>
-                                <span className="text-2xl">{t.icon}</span>
-                                <span className="text-[9px] font-black uppercase mt-1 tracking-wider">{t.label}</span>
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-            );
-        }
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 
-        function AdminTools({ staff, onAdd, onDelete }) {
-            const [isOpened, setIsOpened] = useState(false);
-            const [newName, setNewName] = useState('');
-            const [newDept, setNewDept] = useState(DEPARTMENTS[0]);
-
-            return (
-                <div className="glass rounded-[2rem] border-red-500/20 border overflow-hidden">
-                    <button onClick={() => setIsOpened(!isOpened)} className="w-full p-5 flex justify-between items-center bg-red-500/5">
-                        <span className="text-xs font-black text-red-500 uppercase tracking-widest">Admin Control Panel</span>
-                        <span className="text-xs font-bold">{isOpened ? 'CLOSE' : 'OPEN'}</span>
-                    </button>
-
-                    {isOpened && (
-                        <div className="p-6 space-y-6 animate-slide-up">
-                            <div className="space-y-3">
-                                <input type="text" placeholder="Full Name" className="w-full p-4 bg-black/40 border border-slate-700 rounded-2xl text-sm font-bold focus:border-red-500 outline-none" 
-                                value={newName} onChange={(e) => setNewName(e.target.value)} />
-                                <select className="w-full p-4 bg-black/40 border border-slate-700 rounded-2xl text-sm font-bold focus:border-red-500 outline-none" 
-                                value={newDept} onChange={(e) => setNewDept(e.target.value)}>
-                                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                                <button onClick={() => { if(newName){ onAdd(newName, newDept); setNewName(''); } }} 
-                                className="w-full py-4 bg-red-600 rounded-2xl font-black text-xs uppercase shadow-lg shadow-red-600/20 active:scale-95 transition-all">Add To Directory</button>
-                            </div>
-
-                            <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
-                                {staff.map(s => (
-                                    <div key={s.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 group">
-                                        <div>
-                                            <div className="text-sm font-black text-white">{s.name}</div>
-                                            <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{s.dept}</div>
-                                        </div>
-                                        <button onClick={() => confirm(`Permanently remove ${s.name}?`) && onDelete(s.id)} className="text-red-500 opacity-50 group-hover:opacity-100 text-[10px] font-black transition-all">DELETE</button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        function RatingFlow({ staff, selectedDept, manager, ratings, onDone }) {
-            const [emp, setEmp] = useState(null);
-            const [vals, setVals] = useState({ t:0, c:0, p:0, s:0 });
-            
-            const pending = staff.filter(s => s.dept === selectedDept && !ratings.some(r => r.empId === s.id && r.manager === manager));
-            const completed = staff.filter(s => s.dept === selectedDept && ratings.some(r => r.empId === s.id && r.manager === manager));
-
-            if (emp) return (
-                <div className="glass p-8 rounded-[2.5rem] animate-slide-up">
-                    <button onClick={() => setEmp(null)} className="text-blue-500 font-black text-xs mb-6 flex items-center gap-2"><span>←</span> CANCEL</button>
-                    <div className="mb-10 text-center">
-                        <h2 className="text-3xl font-black text-white mb-2">{emp.name}</h2>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{emp.dept}</span>
-                    </div>
-
-                    <div className="space-y-8">
-                        {[
-                            ['t','Technical Skills', 'Knowledge & Execution'], 
-                            ['c','Teamwork', 'Collaboration & Behavior'], 
-                            ['p','Punctuality', 'Timing & Reliability'], 
-                            ['s','Critical Thinking', 'Problem Solving']
-                        ].map(([key, label, sub]) => (
-                            <div key={key}>
-                                <div className="flex justify-between items-center mb-4">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{label}</label>
-                                    <span className="text-[9px] text-slate-600 font-bold italic">{sub}</span>
-                                </div>
-                                <div className="flex justify-between bg-slate-900/40 p-3 rounded-2xl border border-white/5">
-                                    {[1,2,3,4,5].map(n => (
-                                        <button key={n} onClick={() => setVals({...vals, [key]: n})} 
-                                        className={`text-3xl transition-all active:scale-150 ${vals[key] >= n ? 'star-gold' : 'star-gray'}`}>★</button>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <button onClick={() => {
-                        if(Object.values(vals).some(v => v === 0)) return alert("Please rate all criteria!");
-                        onDone({ manager, empId: emp.id, name: emp.name, dept: emp.dept, ...vals, avg: (vals.t+vals.c+vals.p+vals.s)/4 });
-                        setEmp(null); setVals({t:0,c:0,p:0,s:0});
-                    }} className="w-full py-5 bg-blue-600 rounded-[2rem] font-black text-white shadow-2xl mt-12 btn-bounce uppercase tracking-[0.2em] text-xs">Confirm Rating</button>
-                </div>
-            );
-
-            return (
-                <div className="space-y-8">
-                    <div className="flex bg-slate-900/40 p-1.5 rounded-2xl border border-white/5">
-                        <div className="flex-1 text-center py-2 text-[10px] font-black text-blue-400">CATEGORY: {selectedDept.toUpperCase()}</div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Pending ({pending.length})</h4>
-                        {pending.length === 0 ? <div className="p-10 glass rounded-3xl text-center text-slate-600 font-bold italic text-sm">Perfect! No pending reviews.</div> : 
-                            pending.map(s => (
-                                <div key={s.id} onClick={() => setEmp(s)} className="glass p-6 rounded-[2rem] flex justify-between items-center active:scale-95 transition-all group border-white/5 cursor-pointer">
-                                    <span className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">{s.name}</span>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase">Start</span>
-                                        <span className="text-blue-500 text-xl font-black">→</span>
-                                    </div>
-                                </div>
-                            ))
-                        }
-                    </div>
-
-                    {completed.length > 0 && (
-                        <div className="space-y-4 pt-4 border-t border-white/5">
-                            <h4 className="text-[10px] font-black text-green-500 uppercase tracking-widest px-2">Completed ({completed.length})</h4>
-                            {completed.map(s => {
-                                const userRating = ratings.find(r => r.empId === s.id && r.manager === manager);
-                                return (
-                                    <div key={s.id} className="glass p-6 rounded-[2rem] flex justify-between items-center opacity-60 border-green-500/10">
-                                        <div>
-                                            <span className="font-bold text-white block">{s.name}</span>
-                                            <span className="text-[8px] font-black text-green-500 uppercase">Rating: {userRating?.avg.toFixed(1)} Stars</span>
-                                        </div>
-                                        <div className="flex text-yellow-500 text-xs">
-                                            {[...Array(5)].map((_, i) => (
-                                                <span key={i} className={i < Math.round(userRating?.avg || 0) ? 'text-yellow-500' : 'text-slate-800'}>★</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+</script>
 </body>
 </html>
